@@ -8,9 +8,30 @@ endif()
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
-find_package(tf2 REQUIRED)
+find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
+
+# generate .cpp executables
+add_executable(pid_maze_solver src/pid_maze_solver.cpp)
+ament_target_dependencies(pid_maze_solver rclcpp tf2 geometry_msgs nav_msgs)
+
+# install .cpp executables
+install(TARGETS
+  pid_maze_solver
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+# install .py programs
+# install(PROGRAMS
+#   src/my_program.py
+#   DESTINATION lib/${PROJECT_NAME}
+# )
+
+
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)

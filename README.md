@@ -25,7 +25,7 @@ After compile:
 ## Others
 Capture points
 
-    ros2 topic echo /rosbot_xl_base_controller/odom --fie pose.pose.position
+    ros2 topic echo /rosbot_xl_base_controller/odom --field pose.pose.position
 
 Manual control
 
