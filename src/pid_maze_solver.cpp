@@ -101,7 +101,8 @@ private:
     float initial_pos_x_ = 0.0, initial_pos_y_ = 0.0;
     float desired_pos_x_ = 0.0, desired_pos_y_ = 0.0;
     float initial_angle_ = 0.0, desired_angle_ = 0.0;
-    
+    // for fixing the sign value in distance control
+    double initial_direction_, current_direction_;
 
     void odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg)
     {
@@ -118,6 +119,8 @@ private:
                 desired_pos_x_ = initial_pos_x_ + desired_value_*cos(current_theta_);
                 desired_pos_y_ = initial_pos_y_ + desired_value_*sin(current_theta_);
                 error_ = sqrt(pow(desired_pos_x_ - current_x_, 2) + pow(desired_pos_y_ - current_y_, 2));
+                // for fixing the sign value in distance control
+                initial_direction_ = atan2(desired_pos_y_ - initial_pos_y_, desired_pos_x_ - initial_pos_x_);
             }
             else if(type_=="turn")
             {
@@ -136,6 +139,8 @@ private:
             timer_->reset();
             odom_received_ = true;
         }
+        // for fixing the sign value in distance control
+        current_direction_ = atan2(desired_pos_y_ - current_y_, desired_pos_x_ - current_x_);
     }
 
     double quat2rpy(const geometry_msgs::msg::Quaternion& quat)
@@ -201,7 +206,7 @@ private:
             // calculate the error
             error_ = sqrt(pow(desired_pos_x_ - current_x_, 2) + pow(desired_pos_y_ - current_y_, 2));
             // determine the direction
-            float direction = (desired_value_ < 0) ? -1.0 : 1.0;
+            // float direction = (desired_value_ < 0) ? -1.0 : 1.0;
             // proportional control
             float P = distance_kp_ * error_;
             // integral control
@@ -211,7 +216,12 @@ private:
             derivative_ = (error_ - previous_error_) / ((float)TIMER_MS_ / 1000.0);
             float D = distance_kd_ * derivative_;
             // control algorithm
-            float control_signal = direction * (P + I + D);
+            // float control_signal = direction * (P + I + D);
+            // for fixing the sign value in distance control
+            float direction = (cos(initial_direction_-current_direction_) >= 0) ? 1.0 : 0.0;
+            float control_signal = (P + I + D) * direction;
+            // RCLCPP_INFO(this->get_logger(), "Initial: '%.2f' - Current: '%.2f' - Direction: '%.2f'", initial_direction_*180.0/M_PI, current_direction_*180.0/M_PI,direction);
+            if(direction==0.0) {error_ = 0.0;}
             // update error
             previous_error_ = error_;
             // saturate the control
@@ -255,6 +265,11 @@ float distance(float x1, float y1, float x2, float y2)
     return sqrt(pow(x2 - x1, 2) + pow(y2 - y1, 2));
 }
 
+std::pair<double, double> relativePosition(float x1, float y1, float x2, float y2)
+{
+    return std::make_pair(x2 - x1, y2 - y1);
+}
+
 // function for setting the position of the robot
 void setPosition(std::shared_ptr<DistanceTurnController> &controller, double position) {
     controller->setDesiredPosition(position);
@@ -283,6 +298,8 @@ int main(int argc, char **argv)
         scene_number_ = std::atoi(argv[1]);
     }
     auto distance_turn_controller = std::make_shared<DistanceTurnController>();
+    float distance_value;
+    std::pair<double, double> relative_position;
 
     // Declare waypoints before the switch statement
     std::vector<std::pair<double, double>> waypoints;
@@ -291,19 +308,19 @@ int main(int argc, char **argv)
     case 1: // Simulation
         waypoints = {
         {0.0, 0.0},         // waypoint 1        
-        {0.467, -0.017},    // waypoint 2       
-        {0.471, -1.376},    // waypoint 3        
-        {0.992, -1.408},    // waypoint 4        
-        {1.025, -0.934},    // waypoint 5        
-        {1.435, -0.917},    // waypoint 6        
-        {1.446, -0.371},    // waypoint 7        
-        {1.959, -0.363},    // waypoint 8        
-        {1.954, 0.510},     // waypoint 9    
-        {1.501, 0.497},     // waypoint 10    
-        {1.491, 0.193},     // waypoint 11    
-        {1.009, 0.174},     // waypoint 12   
-        {0.583, 0.468},     // waypoint 13    
-        {0.122, 0.481}      // waypoint 14   
+        {0.478, -0.108},    // waypoint 2       
+        {0.520, -1.317},    // waypoint 3        
+        {1.050, -1.397},    // waypoint 4        
+        {1.060, -0.885},    // waypoint 5        
+        {1.450, -0.843},    // waypoint 6        
+        {1.450, -0.316},    // waypoint 7        
+        {2.050, -0.316},    // waypoint 8       
+        {2.060, 0.550},     // waypoint 9     
+        {1.575, 0.550},     // waypoint 10    
+        {1.575, 0.240},     // waypoint 11    
+        {1.184, 0.260},     // waypoint 12   
+        {0.884, 0.626},     // waypoint 13    
+        {0.222, 0.626}      // waypoint 14 
         };
         break;
 
@@ -339,9 +356,11 @@ int main(int argc, char **argv)
     }
 
     for (size_t i = 0; i < waypoints.size() - 1; ++i) {
-        setOrientation(distance_turn_controller, waypoints[i+1].first, waypoints[i+1].second);
-        setPosition(distance_turn_controller, distance(waypoints[i].first, waypoints[i].second, waypoints[i+1].first, waypoints[i+1].second));
-        RCLCPP_INFO(distance_turn_controller->get_logger(), "------------- Waypoint %zu reached -------------", i+1);
+        relative_position = relativePosition(waypoints[i].first, waypoints[i].second, waypoints[i+1].first, waypoints[i+1].second);
+        setOrientation(distance_turn_controller, relative_position.first, relative_position.second);
+        distance_value = distance(waypoints[i].first, waypoints[i].second, waypoints[i+1].first, waypoints[i+1].second);
+        setPosition(distance_turn_controller, distance_value);
+        RCLCPP_INFO(distance_turn_controller->get_logger(), "------------- Waypoint %zu reached -------------", i+2);
     }
     rclcpp::shutdown();
     return 0;
