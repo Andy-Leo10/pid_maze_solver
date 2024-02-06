@@ -249,6 +249,30 @@ private:
     }
 };
 
+// function for calculating the distance between two points
+float distance(float x1, float y1, float x2, float y2)
+{
+    return sqrt(pow(x2 - x1, 2) + pow(y2 - y1, 2));
+}
+
+// function for setting the position of the robot
+void setPosition(std::shared_ptr<DistanceTurnController> &controller, double position) {
+    controller->setDesiredPosition(position);
+    while(!controller->hasReachedDesiredPosition()){
+        rclcpp::spin_some(controller);
+    }
+    rclcpp::sleep_for(std::chrono::seconds(1));
+}
+
+// function for setting the orientation of the robot
+void setOrientation(std::shared_ptr<DistanceTurnController> &controller, double x, double y) {
+    controller->setDesiredOrientation(x, y);
+    while(!controller->hasReachedDesiredOrientation()){
+        rclcpp::spin_some(controller);
+    }
+    rclcpp::sleep_for(std::chrono::seconds(1));
+}
+
 int main(int argc, char **argv)
 {
     setenv("RCUTILS_CONSOLE_OUTPUT_FORMAT", "[{severity}]: [{message}]", 1);
@@ -314,29 +338,35 @@ int main(int argc, char **argv)
         return -1;
     }
 
-    distance_turn_controller->setDesiredPosition(1.0);
-    while(!distance_turn_controller->hasReachedDesiredPosition()){rclcpp::spin_some(distance_turn_controller);}
-    rclcpp::sleep_for(std::chrono::seconds(1));
-    distance_turn_controller->setDesiredPosition(-1.5);
-    while(!distance_turn_controller->hasReachedDesiredPosition()){rclcpp::spin_some(distance_turn_controller);}
-    rclcpp::sleep_for(std::chrono::seconds(1));
-    distance_turn_controller->setDesiredPosition(0.5);
-    while(!distance_turn_controller->hasReachedDesiredPosition()){rclcpp::spin_some(distance_turn_controller);}
-    rclcpp::sleep_for(std::chrono::seconds(1));
-
-    distance_turn_controller->setDesiredOrientation(1.0, 1.0);
-    while(!distance_turn_controller->hasReachedDesiredOrientation()){rclcpp::spin_some(distance_turn_controller);}
-    rclcpp::sleep_for(std::chrono::seconds(1));
-    distance_turn_controller->setDesiredOrientation(-1.0, 1.0);
-    while(!distance_turn_controller->hasReachedDesiredOrientation()){rclcpp::spin_some(distance_turn_controller);}
-    rclcpp::sleep_for(std::chrono::seconds(1));
-    distance_turn_controller->setDesiredOrientation(-1.0, -1.0);
-    while(!distance_turn_controller->hasReachedDesiredOrientation()){rclcpp::spin_some(distance_turn_controller);}
-    rclcpp::sleep_for(std::chrono::seconds(1));
-    distance_turn_controller->setDesiredOrientation(1.0, -1.0);
-    while(!distance_turn_controller->hasReachedDesiredOrientation()){rclcpp::spin_some(distance_turn_controller);}
-    rclcpp::sleep_for(std::chrono::seconds(1));
-
+    for (size_t i = 0; i < waypoints.size() - 1; ++i) {
+        setOrientation(distance_turn_controller, waypoints[i+1].first, waypoints[i+1].second);
+        setPosition(distance_turn_controller, distance(waypoints[i].first, waypoints[i].second, waypoints[i+1].first, waypoints[i+1].second));
+        RCLCPP_INFO(distance_turn_controller->get_logger(), "------------- Waypoint %zu reached -------------", i+1);
+    }
     rclcpp::shutdown();
     return 0;
 }
+
+    // distance_turn_controller->setDesiredPosition(1.0);
+    // while(!distance_turn_controller->hasReachedDesiredPosition()){rclcpp::spin_some(distance_turn_controller);}
+    // rclcpp::sleep_for(std::chrono::seconds(1));
+    // distance_turn_controller->setDesiredPosition(-1.5);
+    // while(!distance_turn_controller->hasReachedDesiredPosition()){rclcpp::spin_some(distance_turn_controller);}
+    // rclcpp::sleep_for(std::chrono::seconds(1));
+    // distance_turn_controller->setDesiredPosition(0.5);
+    // while(!distance_turn_controller->hasReachedDesiredPosition()){rclcpp::spin_some(distance_turn_controller);}
+    // rclcpp::sleep_for(std::chrono::seconds(1));
+
+    // distance_turn_controller->setDesiredOrientation(1.0, 1.0);
+    // while(!distance_turn_controller->hasReachedDesiredOrientation()){rclcpp::spin_some(distance_turn_controller);}
+    // rclcpp::sleep_for(std::chrono::seconds(1));
+    // distance_turn_controller->setDesiredOrientation(-1.0, 1.0);
+    // while(!distance_turn_controller->hasReachedDesiredOrientation()){rclcpp::spin_some(distance_turn_controller);}
+    // rclcpp::sleep_for(std::chrono::seconds(1));
+    // distance_turn_controller->setDesiredOrientation(-1.0, -1.0);
+    // while(!distance_turn_controller->hasReachedDesiredOrientation()){rclcpp::spin_some(distance_turn_controller);}
+    // rclcpp::sleep_for(std::chrono::seconds(1));
+    // distance_turn_controller->setDesiredOrientation(1.0, -1.0);
+    // while(!distance_turn_controller->hasReachedDesiredOrientation()){rclcpp::spin_some(distance_turn_controller);}
+    // rclcpp::sleep_for(std::chrono::seconds(1));
+
